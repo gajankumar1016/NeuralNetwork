@@ -58,6 +58,7 @@ class NeuralNetwork:
                 g_backwards = ActivationFunctions.sigmoid_backwards
             self.layers.append(NeuralNetwork.NNLayer(layer_dims[i - 1], layer_dims[i],
                                                      g, g_backwards))
+        self.regularization = None
 
     def compute_forward_prop(self, X):
         self.m = X.shape[1]
@@ -71,8 +72,6 @@ class NeuralNetwork:
 
     def Loss(self, y, yhat):
         y = y.reshape(self.m)
-        # print(y)
-        # print(yhat)
         return -(y*np.log(yhat) + (1-y)*np.log(1-yhat))
 
     def dLdA(self, A, Y):
@@ -80,7 +79,15 @@ class NeuralNetwork:
 
     def J(self, Y, Yhat):
         losses = self.Loss(Y, Yhat)
-        return np.sum(losses) / losses.shape[0]
+        cross_entropy_cost = np.sum(losses) / losses.shape[0]
+        if self.regularization == "L2":
+            L2_regularization_cost = 0
+            for i in range(len(self.layers)):
+                L2_regularization_cost += np.sum(self.layers[i].W**2)
+
+            L2_regularization_cost *= (self.lambd/(2 * self.m))
+            return cross_entropy_cost + L2_regularization_cost
+        return cross_entropy_cost
 
     def _backprop(self, A, Y, alpha):
         dA = self.dLdA(A, Y)
@@ -88,6 +95,8 @@ class NeuralNetwork:
             curr_layer = self.layers[i]
             dZ = dA * curr_layer.g_backwards(curr_layer.Z)
             dW = (1. / self.m) * np.dot(dZ, curr_layer.prev_activations.T)
+            if self.regularization == "L2":
+                dW += (self.lambd/self.m) * curr_layer.W
             db = (1. / self.m) * np.sum(dZ, axis=1, keepdims = True)
             curr_layer.W -= alpha * dW
             curr_layer.b -= alpha * db
@@ -112,7 +121,15 @@ class NeuralNetwork:
         return minibatches
 
 
-    def train(self, X, Y, alpha=0.01, num_epochs=1000, minibatch_size=32, convergence_thresh=0.0):
+    def train(self, X, Y, alpha=0.01, num_epochs=1000, minibatch_size=32, convergence_thresh=0.0,
+              print_cost=False, regularization=None, lambd=None, seed=None):
+        if regularization:
+            if regularization.upper() == "L2" and lambd:
+                self.regularization = regularization
+                self.lambd = lambd
+            else:
+                raise ValueError("Invalid regularization params")
+
         costs = []
         minibatches = self._get_minibatches(X, Y, minibatch_size)
         for i in range(num_epochs):
@@ -122,7 +139,11 @@ class NeuralNetwork:
                 Yhat = self.compute_forward_prop(minibatch_X)
                 cost = self.J(minibatch_Y, Yhat)
                 self._backprop(Yhat, minibatch_Y, alpha=alpha)
-            if i % 100 == 0:
+
+            # if cost > 0 and cost < 0.05:
+            #     break
+
+            if print_cost and  i % 100 == 0:
                 print("Cost after epoch {}: {}".format(i, cost))
             costs.append(cost)
 
@@ -138,7 +159,7 @@ class NeuralNetwork:
         Yhat = self.predict(X)
         print("Predictions: ", Yhat)
         matches = (Yhat == Y.reshape(self.m))
-        print(matches)
+        # print(matches)
         return np.sum(matches) / len(matches)
 
 
