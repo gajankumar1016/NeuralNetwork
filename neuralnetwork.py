@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class ActivationFunctions:
     @staticmethod
@@ -92,19 +93,41 @@ class NeuralNetwork:
             curr_layer.b -= alpha * db
             dA = np.dot(curr_layer.W.T, dZ)
 
-    def train(self, X, Y, alpha=0.01, num_iters=500, convergence_thresh=0.0):
+    def _get_minibatches(self, X, Y, minibatch_size):
+        m = X.shape[1]
+        num_complete_minibatches = math.floor(m / minibatch_size)
+        minibatches = []
+        for i in range(num_complete_minibatches):
+            minibatch_X = X[:, i*minibatch_size:(i+1)*minibatch_size]
+            minibatch_Y = Y[:, i*minibatch_size:(i+1)*minibatch_size]
+            minibatch = (minibatch_X, minibatch_Y)
+            minibatches.append(minibatch)
+
+        if m % minibatch_size != 0:
+            minibatch_X = X[:, num_complete_minibatches * minibatch_size:]
+            minibatch_Y = Y[:, num_complete_minibatches * minibatch_size:]
+            minibatch = (minibatch_X, minibatch_Y)
+            minibatches.append(minibatch)
+
+        return minibatches
+
+
+    def train(self, X, Y, alpha=0.01, num_epochs=1000, minibatch_size=32, convergence_thresh=0.0):
         costs = []
-        for i in range(num_iters):
-            Yhat = self.compute_forward_prop(X)
-            cost = self.J(Y, Yhat)
+        minibatches = self._get_minibatches(X, Y, minibatch_size)
+        for i in range(num_epochs):
+            cost = -1
+            for minibatch in minibatches:
+                minibatch_X, minibatch_Y = minibatch
+                Yhat = self.compute_forward_prop(minibatch_X)
+                cost = self.J(minibatch_Y, Yhat)
+                self._backprop(Yhat, minibatch_Y, alpha=alpha)
             if i % 100 == 0:
-                print("Cost at iteration {}: {}".format(i, cost))
+                print("Cost after epoch {}: {}".format(i, cost))
             costs.append(cost)
 
             if i > 1 and abs(costs[i-1] - costs[i]) < convergence_thresh:
                 break
-
-            self._backprop(Yhat, Y, alpha=alpha)
         return costs
 
     def predict(self, X):
