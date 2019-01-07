@@ -1,37 +1,16 @@
 import numpy as np
 import math
-from utils import ActivationFunctions
+from utils import ActivationFunctions, NNLayer
 
 class NeuralNetwork:
-    class NNLayer:
-        def __init__(self, prev_dims, num_neurons, g, g_backwards):
-            self.numneurons = num_neurons
-            self.W = np.random.randn(num_neurons, prev_dims) * np.sqrt(2 / prev_dims)
-            self.b = np.random.randn(num_neurons, 1)
-            self.g = g
-            self.g_backwards = g_backwards
-            # Z will be computed during forward prop
-            self.prev_activations = None
-            self.Z = None
-
-        def forward_prop(self, prev_activations):
-            Z = np.dot(self.W, prev_activations) + self.b
-            self.prev_activations = prev_activations
-            self.Z = Z
-            return self.g(Z)
-
-
     def __init__(self, layer_dims):
         self.layers = []
         self.dims = layer_dims
         for i in range(1, len(layer_dims)):
             g = ActivationFunctions.relu
-            g_backwards = ActivationFunctions.relu_backwards
             if i == len(layer_dims) - 1:
                 g = ActivationFunctions.sigmoid
-                g_backwards = ActivationFunctions.sigmoid_backwards
-            self.layers.append(NeuralNetwork.NNLayer(layer_dims[i - 1], layer_dims[i],
-                                                     g, g_backwards))
+            self.layers.append(NNLayer(layer_dims[i - 1], layer_dims[i], g))
         self.regularization = None
 
     def compute_forward_prop(self, X):
