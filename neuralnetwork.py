@@ -1,32 +1,6 @@
 import numpy as np
 import math
-
-class ActivationFunctions:
-    @staticmethod
-    def sigmoid(z):
-        return 1 / (1 + np.exp(-z))
-
-    @staticmethod
-    def sigmoid_backwards(z):
-        return ActivationFunctions.sigmoid(z) * (1 - ActivationFunctions.sigmoid(z))
-
-    @staticmethod
-    def tanh(z):
-        return (np.exp(z) - np.exp(-z)) / (np.exp(z) + np.exp(-z))
-
-    @staticmethod
-    def relu(z):
-        return np.maximum(0, z)
-
-    @staticmethod
-    def relu_backwards(z):
-        return np.int64(z > 0)
-
-    backward_functs_dict = {"sigmoid": sigmoid_backwards, "relu":relu_backwards}
-    @staticmethod
-    def get_backwards_activation_function(activation_func):
-        return ActivationFunctions.backward_functs_dict[activation_func]
-
+from utils import ActivationFunctions
 
 class NeuralNetwork:
     class NNLayer:
@@ -121,8 +95,8 @@ class NeuralNetwork:
         return minibatches
 
 
-    def train(self, X, Y, alpha=0.01, num_epochs=1000, minibatch_size=32, convergence_thresh=0.0,
-              print_cost=False, regularization=None, lambd=None, seed=None):
+    def train(self, X, Y, alpha=0.01, num_epochs=1000, minibatch_size=32, convergence_thresh=0.0, cost_thresh=None,
+              regularization=None, lambd=None, print_cost=False, print_interval=100, seed=None):
         if regularization:
             if regularization.upper() == "L2" and lambd:
                 self.regularization = regularization
@@ -140,24 +114,26 @@ class NeuralNetwork:
                 cost = self.J(minibatch_Y, Yhat)
                 self._backprop(Yhat, minibatch_Y, alpha=alpha)
 
-            # if cost > 0 and cost < 0.05:
-            #     break
-
-            if print_cost and  i % 100 == 0:
-                print("Cost after epoch {}: {}".format(i, cost))
-            costs.append(cost)
-
-            if i > 1 and abs(costs[i-1] - costs[i]) < convergence_thresh:
+            if cost_thresh and cost < cost_thresh:
                 break
+
+            if print_cost and  i % print_interval == 0:
+                print("Cost after epoch {}: {}".format(i, cost))
+                costs.append(cost)
+
+                if len(costs) >= 2 and (costs[i//print_interval-1] - costs[i//print_interval]) < 0:
+                    print("Cost went up!")
+                    print("Costs: ", costs)
+                    break
         return costs
 
     def predict(self, X):
         return (self.compute_forward_prop(X) > 0.5)
 
     def get_accuracy(self, X, Y):
-        print("Expected:    ", Y)
+        # print("Expected:    ", Y)
         Yhat = self.predict(X)
-        print("Predictions: ", Yhat)
+        # print("Predictions: ", Yhat)
         matches = (Yhat == Y.reshape(self.m))
         # print(matches)
         return np.sum(matches) / len(matches)
@@ -170,7 +146,8 @@ if __name__ == "__main__":
     nn = NeuralNetwork(layer_dims)
     X = np.array(np.random.randn(nx, 12))
     Y = np.array([[0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1]])
-    costs = nn.train(X, Y, alpha=0.01)
+    costs = nn.train(X, Y, alpha=0.01, num_epochs=1500, print_cost=True)
+
     accuracy_on_train = nn.get_accuracy(X, Y)
     print(accuracy_on_train)
 
