@@ -1,17 +1,23 @@
 import numpy as np
 import math
-from utils import ActivationFunctions, NNLayer
+from utils import ActivationFunctions
+import layers
 
 class NeuralNetwork:
-    def __init__(self, layer_dims):
-        self.layers = []
-        self.dims = layer_dims
-        for i in range(1, len(layer_dims)):
-            g = ActivationFunctions.relu
-            if i == len(layer_dims) - 1:
-                g = ActivationFunctions.sigmoid
-            self.layers.append(NNLayer(layer_dims[i - 1], layer_dims[i], g))
+    def __init__(self):
         self.regularization = None
+        self.layers = []
+
+    def add_layer(self, layer):
+        if type(layer) == layers.Flatten:
+            self.layers.append(layer)
+            return
+
+        if len(self.layers) >= 1:
+            prev_dims = self.layers[-1].num_neurons
+            layer._initialize(prev_dims)
+            self.layers.append(layer)
+
 
     def compute_forward_prop(self, X):
         self.m = X.shape[1]
@@ -46,6 +52,9 @@ class NeuralNetwork:
         dA = self.dLdA(A, Y)
         for i in range(len(self.layers) - 1, -1, -1):
             curr_layer = self.layers[i]
+            # TODO: handle case when layers can come before flatten
+            if type(curr_layer) == layers.Flatten:
+                continue
             dZ = dA * curr_layer.g_backwards(curr_layer.Z)
             dW = (1. / self.m) * np.dot(dZ, curr_layer.prev_activations.T)
             if self.regularization == "L2":
@@ -121,10 +130,14 @@ class NeuralNetwork:
 if __name__ == "__main__":
     nx = 10
     m = 12
-    layer_dims = [nx, 20, 30, 50, 70, 6, 1]
-    nn = NeuralNetwork(layer_dims)
     X = np.array(np.random.randn(nx, 12))
     Y = np.array([[0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1]])
+    nn = NeuralNetwork()
+    nn.add_layer(layers.Flatten(nx))
+    nn.add_layer(layers.Dense(20, activation=ActivationFunctions.relu, initialization="He"))
+    nn.add_layer(layers.Dense(30, activation=ActivationFunctions.relu, initialization="He"))
+    nn.add_layer(layers.Dense(1, activation=ActivationFunctions.sigmoid, initialization="He"))
+
     costs = nn.train(X, Y, alpha=0.01, num_epochs=1500, print_cost=True)
 
     accuracy_on_train = nn.get_accuracy(X, Y)
